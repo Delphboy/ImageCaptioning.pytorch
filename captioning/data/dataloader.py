@@ -1,22 +1,19 @@
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import json
-import h5py
-from lmdbdict import lmdbdict
-from lmdbdict.methods import DUMPS_FUNC, LOADS_FUNC
 import os
-import numpy as np
-import numpy.random as npr
 import random
 from functools import partial
 
+import h5py
+import numpy as np
+import numpy.random as npr
+import six
 import torch
 import torch.utils.data as data
+from lmdbdict import lmdbdict
+from lmdbdict.methods import DUMPS_FUNC, LOADS_FUNC
 
-import multiprocessing
-import six
 
 class HybridLoader:
     """
@@ -82,16 +79,12 @@ class HybridLoader:
 
         return feat
 
+
 class Dataset(data.Dataset):
-    
-    def get_vocab_size(self):
-        return self.vocab_size
-
-    def get_vocab(self):
-        return self.ix_to_word
-
-    def get_seq_length(self):
-        return self.seq_length
+    def get_vocab_size(self): return self.vocab_size
+    def get_vocab(self): return self.ix_to_word
+    def get_seq_length(self): return self.seq_length
+    def __len__(self): return len(self.info['images'])
 
     def __init__(self, opt):
         self.opt = opt
@@ -282,24 +275,29 @@ class Dataset(data.Dataset):
                 att_feat = np.stack(sorted(att_feat, key=lambda x:x[-1], reverse=True))
         else:
             att_feat = np.zeros((0,0), dtype='float32')
+        
+
         if self.use_fc:
             try:
                 fc_feat = self.fc_loader.get(str(self.info['images'][ix]['id']))
-            except:
+            except Exception as e:
                 # Use average of attention when there is no fc provided (For bottomup feature)
+                print(f"Error: {e}")
                 fc_feat = att_feat.mean(0)
         else:
             fc_feat = np.zeros((0), dtype='float32')
+
+
         if hasattr(self, 'h5_label_file'):
             seq = self.get_captions(ix, self.seq_per_img)
         else:
             seq = None
+
+
         return (fc_feat,
                 att_feat, seq,
                 ix, it_pos_now, wrapped)
 
-    def __len__(self):
-        return len(self.info['images'])
 
 class DataLoader:
     def __init__(self, opt):
@@ -421,5 +419,3 @@ class MySampler(data.sampler.Sampler):
             'index_list': self._index_list,
             'iter_counter': self.iter_counter - prefetched_num
         }
-
-    

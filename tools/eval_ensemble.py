@@ -61,7 +61,7 @@ assert max([getattr(infos['opt'], 'norm_box_feat', 0) for infos in model_infos])
 vocab = infos['vocab'] # ix -> word mapping
 
 # Setup the model
-from models.AttEnsemble import AttEnsemble
+from captioning.models.AttEnsemble import AttEnsemble
 
 _models = []
 for i in range(len(model_infos)):

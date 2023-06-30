@@ -1,0 +1,36 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "XE Train",
+            "type": "python",
+            "request": "launch",
+            "program": "tools/train.py",
+            "args": [
+                "--cfg",
+                "configs/fc.yml",
+                "--id",
+                "fc-test"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "SCST Train",
+            "type": "python",
+            "request": "launch",
+            "program": "tools/train.py",
+            "args": [
+                "--cfg",
+                "configs/fc_rl.yml",
+                "--id",
+                "fc_rl"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+    ]
+}

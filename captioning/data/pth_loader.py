@@ -14,7 +14,8 @@ import random
 import torch
 import torch.utils.data as data
 
-import multiprocessing
+from dataloader import Dataset
+
 import six
 
 class HybridLoader:
@@ -78,102 +79,9 @@ class HybridLoader:
 
         return feat
 
-class CaptionDataset(data.Dataset):
+class CaptionDataset(Dataset):
+    def __init__(self, opt): super(CaptionDataset, self).__init__(opt)
     
-    def get_vocab_size(self):
-        return self.vocab_size
-
-    def get_vocab(self):
-        return self.ix_to_word
-
-    def get_seq_length(self):
-        return self.seq_length
-
-    def __init__(self, opt):
-        self.opt = opt
-        self.seq_per_img = opt.seq_per_img
-        
-        # feature related options
-        self.use_fc = getattr(opt, 'use_fc', True)
-        self.use_att = getattr(opt, 'use_att', True)
-        self.use_box = getattr(opt, 'use_box', 0)
-        self.norm_att_feat = getattr(opt, 'norm_att_feat', 0)
-        self.norm_box_feat = getattr(opt, 'norm_box_feat', 0)
-
-        # load the json file which contains additional information about the dataset
-        print('DataLoader loading json file: ', opt.input_json)
-        self.info = json.load(open(self.opt.input_json))
-        if 'ix_to_word' in self.info:
-            self.ix_to_word = self.info['ix_to_word']
-            self.vocab_size = len(self.ix_to_word)
-            print('vocab size is ', self.vocab_size)
-        
-        # open the hdf5 file
-        print('DataLoader loading h5 file: ', opt.input_fc_dir, opt.input_att_dir, opt.input_box_dir, opt.input_label_h5)
-        """
-        Setting input_label_h5 to none is used when only doing generation.
-        For example, when you need to test on coco test set.
-        """
-        if self.opt.input_label_h5 != 'none':
-            self.h5_label_file = h5py.File(self.opt.input_label_h5, 'r', driver='core')
-            # load in the sequence data
-            seq_size = self.h5_label_file['labels'].shape
-            self.label = self.h5_label_file['labels'][:]
-            self.seq_length = seq_size[1]
-            print('max sequence length in data is', self.seq_length)
-            # load the pointers in full to RAM (should be small enough)
-            self.label_start_ix = self.h5_label_file['label_start_ix'][:]
-            self.label_end_ix = self.h5_label_file['label_end_ix'][:]
-        else:
-            self.seq_length = 1
-
-        self.data_in_memory = getattr(opt, 'data_in_memory', False)
-        self.fc_loader = HybridLoader(self.opt.input_fc_dir, '.npy', in_memory=self.data_in_memory)
-        self.att_loader = HybridLoader(self.opt.input_att_dir, '.npz', in_memory=self.data_in_memory)
-        self.box_loader = HybridLoader(self.opt.input_box_dir, '.npy', in_memory=self.data_in_memory)
-
-        self.num_images = len(self.info['images']) # self.label_start_ix.shape[0]
-        print('read %d image features' %(self.num_images))
-
-        # separate out indexes for each of the provided splits
-        self.split_ix = {'train': [], 'val': [], 'test': []}
-        for ix in range(len(self.info['images'])):
-            img = self.info['images'][ix]
-            if not 'split' in img:
-                self.split_ix['train'].append(ix)
-                self.split_ix['val'].append(ix)
-                self.split_ix['test'].append(ix)
-            elif img['split'] == 'train':
-                self.split_ix['train'].append(ix)
-            elif img['split'] == 'val':
-                self.split_ix['val'].append(ix)
-            elif img['split'] == 'test':
-                self.split_ix['test'].append(ix)
-            elif opt.train_only == 0: # restval
-                self.split_ix['train'].append(ix)
-
-        print('assigned %d images to split train' %len(self.split_ix['train']))
-        print('assigned %d images to split val' %len(self.split_ix['val']))
-        print('assigned %d images to split test' %len(self.split_ix['test']))
-
-    def get_captions(self, ix, seq_per_img):
-        # fetch the sequence labels
-        ix1 = self.label_start_ix[ix] - 1 #label_start_ix starts from 1
-        ix2 = self.label_end_ix[ix] - 1
-        ncap = ix2 - ix1 + 1 # number of captions available for this image
-        assert ncap > 0, 'an image does not have any label. this can be handled but right now isn\'t'
-
-        if ncap < seq_per_img:
-            # we need to subsample (with replacement)
-            seq = np.zeros([seq_per_img, self.seq_length], dtype = 'int')
-            for q in range(seq_per_img):
-                ixl = random.randint(ix1,ix2)
-                seq[q, :] = self.label[ixl, :self.seq_length]
-        else:
-            ixl = random.randint(ix1, ix2 - seq_per_img + 1)
-            seq = self.label[ixl: ixl + seq_per_img, :self.seq_length]
-
-        return seq
 
     def collate_func(self, batch):
         seq_per_img = self.seq_per_img
@@ -251,6 +159,7 @@ class CaptionDataset(data.Dataset):
 
         return data
 
+
     def __getitem__(self, ix):
         """This function returns a tuple that is further passed to collate_fn
         """
@@ -288,6 +197,3 @@ class CaptionDataset(data.Dataset):
         return (fc_feat,
                 att_feat, seq,
                 ix)
-
-    def __len__(self):
-        return len(self.info['images'])

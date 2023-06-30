@@ -44,7 +44,10 @@ class LossWrapper(torch.nn.Module):
             out['struc_loss'] = struc_loss['loss']
             out['reward'] = struc_loss['reward']
         elif not sc_flag:
-            loss = self.crit(self.model(fc_feats, att_feats, labels[..., :-1], att_masks), labels[..., 1:], masks[..., 1:], reduction=reduction)
+            loss = self.crit(self.model(fc_feats, att_feats, labels[..., :-1], att_masks), 
+                             labels[..., 1:], 
+                             masks[..., 1:], 
+                             reduction=reduction)
         else:
             self.model.eval()
             with torch.no_grad():

@@ -22,7 +22,7 @@ try:
     from pycocotools.coco import COCO
     from pycocoevalcap.eval import COCOEvalCap
 except Exception as e:
-    print('Warning: coco-caption not available. Error meesage:', e)
+    print('Warning: coco-caption not available. Error mesage:', e)
 
 bad_endings = ['a','an','the','in','for','at','of','with','before','after','on','upon','near','to','is','are','am']
 bad_endings += ['the']
@@ -54,7 +54,7 @@ def language_eval(dataset, preds, preds_n, eval_kwargs, split):
     if len(preds_n) > 0:
         # vocab size and novel sentences
         if 'coco' in dataset:
-            dataset_file = 'data/dataset_coco.json'
+            dataset_file = 'data/dataset_coco.json' # TODO: Pull this out into opt so we can use coco_mini
         elif 'flickr30k' in dataset or 'f30k' in dataset:
             dataset_file = 'data/dataset_flickr30k.json'
         training_sentences = set([' '.join(__['tokens']) for _ in json.load(open(dataset_file))['images'] if not _['split'] in ['val', 'test'] for __ in _['sentences']])
@@ -93,10 +93,11 @@ def language_eval(dataset, preds, preds_n, eval_kwargs, split):
     out['entropy'] = mean_entropy
 
     imgToEval = cocoEval.imgToEval
-    for k in list(imgToEval.values())[0]['SPICE'].keys():
-        if k != 'All':
-            out['SPICE_'+k] = np.array([v['SPICE'][k]['f'] for v in imgToEval.values()])
-            out['SPICE_'+k] = (out['SPICE_'+k][out['SPICE_'+k]==out['SPICE_'+k]]).mean()
+    # TODO: re-enable when SPICE is working
+    # for k in list(imgToEval.values())[0]['SPICE'].keys():
+    #     if k != 'All':
+    #         out['SPICE_'+k] = np.array([v['SPICE'][k]['f'] for v in imgToEval.values()])
+    #         out['SPICE_'+k] = (out['SPICE_'+k][out['SPICE_'+k]==out['SPICE_'+k]]).mean()
     for p in preds_filt:
         image_id, caption = p['image_id'], p['caption']
         imgToEval[image_id]['caption'] = caption
@@ -104,8 +105,9 @@ def language_eval(dataset, preds, preds_n, eval_kwargs, split):
     if len(preds_n) > 0:
         from . import eval_multi
         cache_path_n = os.path.join('eval_results/', '.cache_'+ model_id + '_' + split + '_n.json')
-        allspice = eval_multi.eval_allspice(dataset, preds_n, model_id, split)
-        out.update(allspice['overall'])
+        # TODO: re-enable when SPICE is working
+        # allspice = eval_multi.eval_allspie(dataset, preds_n, model_id, split)
+        # out.update(allspice['overall'])
         div_stats = eval_multi.eval_div_stats(dataset, preds_n, model_id, split)
         out.update(div_stats['overall'])
         if eval_oracle:
@@ -116,7 +118,12 @@ def language_eval(dataset, preds, preds_n, eval_kwargs, split):
         self_cider = eval_multi.eval_self_cider(dataset, preds_n, model_id, split)
         out.update(self_cider['overall'])
         with open(cache_path_n, 'w') as outfile:
-            json.dump({'allspice': allspice, 'div_stats': div_stats, 'oracle': oracle, 'self_cider': self_cider}, outfile)
+            json.dump({
+                # 'allspice': allspice, # TODO: re-enable when SPICE is working
+                'div_stats': div_stats, 
+                'oracle': oracle, 
+                'self_cider': self_cider}, 
+                outfile)
         
     out['bad_count_rate'] = sum([count_bad(_['caption']) for _ in preds_filt]) / float(len(preds_filt))
     outfile_path = os.path.join('eval_results/', model_id + '_' + split + '.json')

@@ -96,12 +96,14 @@ class AttModel(CaptionModel):
         self.vocab = opt.vocab
         self.bad_endings_ix = [int(k) for k,v in self.vocab.items() if v in bad_endings]
 
+
     def init_hidden(self, bsz):
         weight = self.logit.weight \
                  if hasattr(self.logit, "weight") \
                  else self.logit[0].weight
         return (weight.new_zeros(self.num_layers, bsz, self.rnn_size),
                 weight.new_zeros(self.num_layers, bsz, self.rnn_size))
+
 
     def clip_att(self, att_feats, att_masks):
         # Clip the length of att_masks and att_feats to the maximum length
@@ -110,6 +112,7 @@ class AttModel(CaptionModel):
             att_feats = att_feats[:, :max_len].contiguous()
             att_masks = att_masks[:, :max_len].contiguous()
         return att_feats, att_masks
+
 
     def _prepare_feature(self, fc_feats, att_feats, att_masks):
         att_feats, att_masks = self.clip_att(att_feats, att_masks)
@@ -122,6 +125,7 @@ class AttModel(CaptionModel):
         p_att_feats = self.ctx2att(att_feats)
 
         return fc_feats, att_feats, p_att_feats, att_masks
+
 
     def _forward(self, fc_feats, att_feats, seq, att_masks=None):
         batch_size = fc_feats.size(0)
@@ -163,6 +167,7 @@ class AttModel(CaptionModel):
 
         return outputs
 
+
     def get_logprobs_state(self, it, fc_feats, att_feats, p_att_feats, att_masks, state, output_logsoftmax=1):
         # 'it' contains a word index
         xt = self.embed(it)
@@ -174,6 +179,7 @@ class AttModel(CaptionModel):
             logprobs = self.logit(output)
 
         return logprobs, state
+
 
     def _old_sample_beam(self, fc_feats, att_feats, att_masks=None, opt={}):
         beam_size = opt.get('beam_size', 10)
@@ -254,6 +260,7 @@ class AttModel(CaptionModel):
                 seqLogprobs[k, :seq_len] = self.done_beams[k][0]['logps']
         # return the samples and their log likelihoods
         return seq, seqLogprobs
+
 
     def _sample(self, fc_feats, att_feats, att_masks=None, opt={}):
 
@@ -351,6 +358,7 @@ class AttModel(CaptionModel):
 
         return seq, seqLogprobs
 
+
     def _diverse_sample(self, fc_feats, att_feats, att_masks=None, opt={}):
 
         sample_method = opt.get('sample_method', 'greedy')
@@ -447,6 +455,8 @@ class AttModel(CaptionModel):
                     seqLogprobs[:,t] = sampleLogprobs.view(-1)
 
         return torch.stack(seq_table, 1).reshape(batch_size * group_size, -1), torch.stack(seqLogprobs_table, 1).reshape(batch_size * group_size, -1)
+
+
 
 class AdaAtt_lstm(nn.Module):
     def __init__(self, opt, use_maxout=True):
@@ -677,6 +687,7 @@ class StackAttCore(nn.Module):
 
         return h_2, [torch.cat(_, 0) for _ in zip(state_0, state_1, state_2)]
 
+
 class DenseAttCore(nn.Module):
     def __init__(self, opt, use_maxout=False):
         super(DenseAttCore, self).__init__()
@@ -716,6 +727,7 @@ class DenseAttCore(nn.Module):
 
         return self.fusion2(torch.cat([h_0, h_1, h_2], 1)), [torch.cat(_, 0) for _ in zip(state_0, state_1, state_2)]
 
+
 class Attention(nn.Module):
     def __init__(self, opt):
         super(Attention, self).__init__()
@@ -746,6 +758,7 @@ class Attention(nn.Module):
         att_res = torch.bmm(weight.unsqueeze(1), att_feats_).squeeze(1) # batch * att_feat_size
 
         return att_res
+
 
 class Att2in2Core(nn.Module):
     def __init__(self, opt):
@@ -789,11 +802,13 @@ class Att2in2Core(nn.Module):
         state = (next_h.unsqueeze(0), next_c.unsqueeze(0))
         return output, state
 
+
 class Att2inCore(Att2in2Core):
     def __init__(self, opt):
         super(Att2inCore, self).__init__(opt)
         del self.a2c
         self.a2c = nn.Linear(self.att_feat_size, 2 * self.rnn_size)
+
 
 """
 Note this is my attempt to replicate att2all model in self-critical paper.
@@ -840,16 +855,19 @@ class Att2all2Core(nn.Module):
         state = (next_h.unsqueeze(0), next_c.unsqueeze(0))
         return output, state
 
+
 class AdaAttModel(AttModel):
     def __init__(self, opt):
         super(AdaAttModel, self).__init__(opt)
         self.core = AdaAttCore(opt)
+
 
 # AdaAtt with maxout lstm
 class AdaAttMOModel(AttModel):
     def __init__(self, opt):
         super(AdaAttMOModel, self).__init__(opt)
         self.core = AdaAttCore(opt, True)
+
 
 class Att2in2Model(AttModel):
     def __init__(self, opt):
@@ -858,12 +876,14 @@ class Att2in2Model(AttModel):
         delattr(self, 'fc_embed')
         self.fc_embed = lambda x : x
 
+
 class Att2all2Model(AttModel):
     def __init__(self, opt):
         super(Att2all2Model, self).__init__(opt)
         self.core = Att2all2Core(opt)
         delattr(self, 'fc_embed')
         self.fc_embed = lambda x : x
+
 
 class UpDownModel(AttModel):
     def __init__(self, opt):
@@ -877,11 +897,13 @@ class StackAttModel(AttModel):
         self.num_layers = 3
         self.core = StackAttCore(opt)
 
+
 class DenseAttModel(AttModel):
     def __init__(self, opt):
         super(DenseAttModel, self).__init__(opt)
         self.num_layers = 3
         self.core = DenseAttCore(opt)
+
 
 class Att2inModel(AttModel):
     def __init__(self, opt):

@@ -39,9 +39,11 @@ for infile in infiles:
         reader = csv.DictReader(tsv_in_file, delimiter='\t', fieldnames = FIELDNAMES)
         for item in reader:
             item['image_id'] = int(item['image_id'])
+            print(f"Processing {item['image_id']}")
             item['num_boxes'] = int(item['num_boxes'])
             for field in ['boxes', 'features']:
-                item[field] = np.frombuffer(base64.decodestring(item[field].encode('ascii')), 
+                item[field] = item[field] + "=" * (4 - len(item[field]) % 4)
+                item[field] = np.frombuffer(base64.b64decode(item[field].encode('ascii')), 
                         dtype=np.float32).reshape((item['num_boxes'],-1))
             np.savez_compressed(os.path.join(args.output_dir+'_att', str(item['image_id'])), feat=item['features'])
             np.save(os.path.join(args.output_dir+'_fc', str(item['image_id'])), item['features'].mean(0))

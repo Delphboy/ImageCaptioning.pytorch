@@ -17,6 +17,7 @@ from .BertCapModel import BertCapModel
 from .M2Transformer import M2TransformerModel
 from .AoAModel import AoAModel
 
+# TODO: REFACTOR - Pull out into an explicit factory pattern
 def setup(opt):
     if opt.caption_model in ['fc', 'show_tell']:
         print('Warning: %s model is mostly deprecated; many new features are not supported.' %opt.caption_model)

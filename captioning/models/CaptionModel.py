@@ -19,12 +19,9 @@ from . import utils as model_utils
 
 
 class CaptionModel(nn.Module):
-    def __init__(self):
-        super(CaptionModel, self).__init__()
+    def __init__(self): super(CaptionModel, self).__init__()
+    def decode_sequence(self, seq): return utils.decode_sequence(self.vocab, seq)
 
-    # implements beam search
-    # calls beam_step and returns the final set of beams
-    # augments log-probabilities with diversity terms when number of groups > 1
 
     def forward(self, *args, **kwargs):
         mode = kwargs.get('mode', 'forward')
@@ -33,7 +30,6 @@ class CaptionModel(nn.Module):
         return getattr(self, '_'+mode)(*args, **kwargs)
 
     def beam_search(self, init_state, init_logprobs, *args, **kwargs):
-
         # function computes the similarity score to be augmented
         def add_diversity(beam_seq_table, logprobs, t, divm, diversity_lambda, bdash):
             local_time = t - divm
@@ -54,9 +50,7 @@ class CaptionModel(nn.Module):
 
             return logprobs, unaug_logprobs
 
-
         # does one step of classical beam search
-
         def beam_step(logprobs, unaug_logprobs, beam_size, t, beam_seq, beam_seq_logprobs, beam_logprobs_sum, state):
             #INPUTS:
             #logprobs: probabilities augmented after diversity N*bxV
@@ -150,11 +144,14 @@ class CaptionModel(nn.Module):
                 if t >= divm and t <= self.seq_length + divm - 1:
                     # add diversity
                     logprobs = logprobs_table[divm]
+                    
                     # suppress previous word
                     if decoding_constraint and t-divm > 0:
                         logprobs.scatter_(1, beam_seq_table[divm][:, :, t-divm-1].reshape(-1, 1).to(device), float('-inf'))
+                    
                     if remove_bad_endings and t-divm > 0:
                         logprobs[torch.from_numpy(np.isin(beam_seq_table[divm][:, :, t-divm-1].cpu().numpy(), self.bad_endings_ix)).reshape(-1), 0] = float('-inf')
+                    
                     # suppress UNK tokens in the decoding
                     if suppress_UNK and hasattr(self, 'vocab') and self.vocab[str(logprobs.size(1)-1)] == 'UNK':
                         logprobs[:,logprobs.size(1)-1] = logprobs[:, logprobs.size(1)-1] - 1000
@@ -178,6 +175,7 @@ class CaptionModel(nn.Module):
                                                 beam_seq_logprobs_table[divm],
                                                 beam_logprobs_sum_table[divm],
                                                 state_table[divm])
+
 
                     # if time's up... or if end token is reached then copy beams
                     for b in range(batch_size):
@@ -208,6 +206,7 @@ class CaptionModel(nn.Module):
         done_beams = [sum(_, []) for _ in done_beams_table]
         return done_beams
 
+
     def old_beam_search(self, init_state, init_logprobs, *args, **kwargs):
 
         # function computes the similarity score to be augmented
@@ -222,7 +221,6 @@ class CaptionModel(nn.Module):
             return unaug_logprobsf
 
         # does one step of classical beam search
-
         def beam_step(logprobsf, unaug_logprobsf, beam_size, t, beam_seq, beam_seq_logprobs, beam_logprobs_sum, state):
             #INPUTS:
             #logprobsf: probabilities augmented after diversity
@@ -367,6 +365,7 @@ class CaptionModel(nn.Module):
         done_beams = sum(done_beams_table, [])
         return done_beams
 
+
     def sample_next_word(self, logprobs, sample_method, temperature):
         if sample_method == 'greedy':
             sampleLogprobs, it = torch.max(logprobs.data, 1)
@@ -406,6 +405,3 @@ class CaptionModel(nn.Module):
             sampleLogprobs = logprobs.gather(1, it.unsqueeze(1)) # gather the logprobs at sampled positions
         return it, sampleLogprobs
 
-
-    def decode_sequence(self, seq):
-        return utils.decode_sequence(self.vocab, seq)
